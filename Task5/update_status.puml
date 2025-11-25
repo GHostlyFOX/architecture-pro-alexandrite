@@ -1,0 +1,21 @@
+@startuml
+
+title Кэширование запроса на обновление статуса заказа
+
+actor Operator
+participant UI
+participant "MES API"
+participant Redis
+queue RabbitMQ
+database "MES DB"
+
+Operator --> UI: Обновление статуса заказа
+UI --> "MES API": PATCH /order
+"MES API" --> "MES DB": UPDATE-запрос на обновление статуса
+"MES DB" --> "MES API": Transaction committed
+"MES API" --> RabbitMQ: отправка обновления через очередь в CRM
+"MES API" --> Redis: обновление записей в кэше, где фигурирует заказ в old и new статусе
+"MES API" --> UI: 200 OK
+UI --> Operator: Подтвеждрение обновления
+
+@enduml

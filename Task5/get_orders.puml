@@ -1,0 +1,26 @@
+@startuml
+
+title Кэширование запроса списка заказов
+
+actor Operator
+participant UI
+participant "MES API"
+participant Redis
+database "MES DB"
+
+Operator --> UI: Запрос списка заказов
+UI --> "MES API": GET /orders
+"MES API" --> Redis: Получение из кэша
+
+alt
+Redis --> "MES API": Cache hit
+else
+Redis --> "MES API": Cache miss
+"MES API" --> "MES DB": SELECT-запрос списка заявлений
+"MES API" --> Redis: сохранение списка заявлений по запросу
+end
+
+"MES API" --> UI: 200 OK + список заявлений
+UI --> Operator: список заявлений
+
+@enduml
