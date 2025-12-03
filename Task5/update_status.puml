@@ -1,21 +1,56 @@
 @startuml
+title Sequence Diagram: Изменение статуса заказа (с кешированием Write-Through)
 
-title Кэширование запроса на обновление статуса заказа
+actor Оператор
+participant "MES Frontend\n(React)" as Frontend
+participant "MES API\n(C#)" as API
+participant "Redis Cache" as Cache
+participant "Database MES" as DB
+participant "RabbitMQ" as Queue
+participant "Background Worker" as Worker
 
-actor Operator
-participant UI
-participant "MES API"
-participant Redis
-queue RabbitMQ
-database "MES DB"
+Оператор -> Frontend: Нажатие "Взять в работу"\nзаказ ID=123
+Frontend -> API: PATCH /api/orders/123\n{"status": "MANUFACTURING_STARTED"}
 
-Operator --> UI: Обновление статуса заказа
-UI --> "MES API": PATCH /order
-"MES API" --> "MES DB": UPDATE-запрос на обновление статуса
-"MES DB" --> "MES API": Transaction committed
-"MES API" --> RabbitMQ: отправка обновления через очередь в CRM
-"MES API" --> Redis: обновление записей в кэше, где фигурирует заказ в old и new статусе
-"MES API" --> UI: 200 OK
-UI --> Operator: Подтвеждрение обновления
+' 1. Проверка блокировки для конкурентного доступа
+API -> Cache: SETNX lock:order:123 "operator_id"\nEX 10 (TTL=10 секунд)
+
+alt Блокировка получена (значение = 1)
+    Cache -> API: Успех (1)
+    
+    ' 2. Write-Through: сначала обновление в кеше
+    API -> Cache: HSET order:123 status "MANUFACTURING_STARTED"\nHSET order:123 operator_id "current_operator"\nHSET order:123 updated_at [текущее время]
+    
+    ' 3. Инвалидация связанных кешей
+    API -> Cache: DEL orders:status:NEW:page:*\nDEL orders:status:NEW:count\nDEL dashboard:stats
+    Note right of API: Удаляем все страницы списков NEW\nи агрегированные данные
+    
+    ' 4. Асинхронная запись в базу данных
+    API -> Worker: Задача на обновление в БД\n{order_id: 123, status: "MANUFACTURING_STARTED"}
+    
+    ' 5. Отправка события в очередь
+    API -> Queue: Отправка OrderStatusChanged\n{order_id: 123, old_status: "PRICE_CALCULATED", \nnew_status: "MANUFACTURING_STARTED"}
+    
+    ' 6. Освобождение блокировки
+    API -> Cache: DEL lock:order:123
+    
+    ' 7. Ответ клиенту
+    API -> Frontend: 200 OK\n{"success": true, "order_id": 123}
+    Frontend -> Оператор: Статус обновлен
+    
+else Блокировка не получена (значение = 0)
+    Cache -> API: Неудача (0) - заказ уже заблокирован
+    
+    ' Получение информации о текущем блокировщике
+    API -> Cache: GET lock:order:123
+    Cache -> API: operator_id другого оператора
+    
+    API -> Frontend: 409 Conflict\n{"error": "Заказ уже взят другим оператором", \n"current_operator": "operator_id"}
+    Frontend -> Оператор: Ошибка - заказ уже занят
+end
+
+' Фоновый процесс записи в БД (асинхронно)
+Worker -> DB: UPDATE orders\nSET status = 'MANUFACTURING_STARTED',\noperator_id = 'current_operator'\nWHERE id = 123
+DB -> Worker: Подтверждение обновления
 
 @enduml
