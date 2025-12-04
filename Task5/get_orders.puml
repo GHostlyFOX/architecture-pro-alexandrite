@@ -1,0 +1,44 @@
+@startuml
+title Sequence Diagram: Получение списка заказов (с кешированием Write-Through + Refresh-Ahead)
+
+actor Оператор
+participant "MES Frontend\n(React)" as Frontend
+participant "MES API\n(C#)" as API
+participant "Redis Cache" as Cache
+participant "Database MES" as DB
+participant "Refresh-Ahead Worker" as Worker
+
+Оператор -> Frontend: Запрос списка заказов\nстатус=NEW, страница=1
+Frontend -> API: GET /api/orders?status=NEW&page=1
+
+API -> Cache: GET orders:status:NEW:page:1
+
+alt Кеш содержит данные (Cache Hit)
+    Cache -> API: Возвращает список заказов
+    API -> Frontend: Данные заказов
+    Frontend -> Оператор: Отображение списка
+    
+    Note right of API: Проверка TTL для Refresh-Ahead
+    API -> Worker: Если TTL < 10 сек, запланировать обновление
+    
+else Кеш пуст (Cache Miss)
+    Cache -> API: null
+    API -> DB: SELECT * FROM orders\nWHERE status='NEW'\nORDER BY created_at DESC\nLIMIT 20 OFFSET 0
+    
+    DB -> API: Данные заказов
+    API -> Cache: SET orders:status:NEW:page:1 [данные]\nEX 30 (TTL=30 секунд)
+    API -> Frontend: Данные заказов
+    Frontend -> Оператор: Отображение списка
+    
+    Note right of API: Запуск Refresh-Ahead для популярных данных
+    API -> Worker: Запланировать обновление через 25 сек
+end
+
+' Фоновый процесс Refresh-Ahead (параллельно)
+Worker -> Cache: Проверка TTL ключа orders:status:NEW:page:1
+Note right of Worker: Когда TTL < 5 секунд
+Worker -> DB: SELECT обновленные данные
+DB -> Worker: Новые данные
+Worker -> Cache: SET orders:status:NEW:page:1 [обновленные данные]\nEX 30 (обновление TTL)
+
+@enduml
