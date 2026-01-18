@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  openldap:
+    image: osixia/openldap:1.5.0
+    container_name: openldap
+    environment:
+      LDAP_ORGANISATION: "BionicPRO"
+      LDAP_DOMAIN: "bionicpro.com"
+      LDAP_ADMIN_PASSWORD: "adminpassword"
+    ports:
+      - "389:389"
+      - "636:636"
+    volumes:
+      - ./users.ldif:/container/service/slapd/assets/config/bootstrap/ldif/custom/users.ldif
+    networks:
+      - bionic-net
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0.0
+    container_name: keycloak
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    command:
+      - start-dev
+    ports:
+      - "8080:8080"
+    networks:
+      - bionic-net
+
+  bionicpro-auth:
+    build: ../task3_auth_service
+    container_name: bionicpro-auth
+    environment:
+      KEYCLOAK_URL: http://keycloak:8080/realms/bionicpro/protocol/openid-connect/
+      REALM_NAME: bionicpro
+      CLIENT_ID: bionicpro-backend
+      CLIENT_SECRET: secret
+      BACKEND_BASE_URL: http://mock-backend:80
+    ports:
+      - "8000:8000"
+    depends_on:
+      - keycloak
+    networks:
+      - bionic-net
+
+networks:
+  bionic-net:
+    driver: bridge

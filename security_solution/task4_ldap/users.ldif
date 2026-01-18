@@ -1,0 +1,55 @@
+dn: dc=bionicpro,dc=com
+objectClass: top
+objectClass: dcObject
+objectClass: organization
+o: BionicPRO
+dc: bionicpro
+
+dn: cn=admin,dc=bionicpro,dc=com
+objectClass: simpleSecurityObject
+objectClass: organizationalRole
+cn: admin
+userPassword: adminpassword
+description: LDAP Administrator
+
+dn: ou=users,dc=bionicpro,dc=com
+objectClass: organizationalUnit
+ou: users
+
+dn: ou=groups,dc=bionicpro,dc=com
+objectClass: organizationalUnit
+ou: groups
+
+dn: cn=user1,ou=users,dc=bionicpro,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+cn: user1
+sn: Doe
+givenName: John
+uid: user1
+uidNumber: 1000
+gidNumber: 1000
+homeDirectory: /home/user1
+userPassword: password123
+mail: user1@bionicpro.com
+
+dn: cn=user2,ou=users,dc=bionicpro,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+cn: user2
+sn: Smith
+givenName: Jane
+uid: user2
+uidNumber: 1001
+gidNumber: 1000
+homeDirectory: /home/user2
+userPassword: password123
+mail: user2@bionicpro.com
+
+dn: cn=managers,ou=groups,dc=bionicpro,dc=com
+objectClass: posixGroup
+cn: managers
+gidNumber: 5000
+memberUid: user1
