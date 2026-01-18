@@ -1,74 +1,74 @@
-# Task 1: Security Architecture and C4 Diagram Update
+# Задание 1: Архитектура безопасности и обновление диаграммы C4
 
-## Architectural Solution
+## Архитектурное решение
 
-To address the security requirements for BionicPRO, we are introducing a **Backend for Frontend (BFF)** pattern using a new service named `bionicpro-auth`.
+Для реализации требований безопасности BionicPRO мы внедряем паттерн **Backend for Frontend (BFF)**, используя новый сервис под названием `bionicpro-auth`.
 
-### Key Components
+### Ключевые компоненты
 
-1.  **bionicpro-auth (BFF Service):**
-    *   **Role:** Acts as the entry point for authentication and a reverse proxy for API requests.
-    *   **Responsibility:**
-        *   Handles the OAuth2/OIDC Authorization Code Flow with PKCE against Keycloak.
-        *   Stores `access_token` and `refresh_token` securely (e.g., in-memory or Redis).
-        *   Issues a generic Session ID (HTTP-only, Secure, SameSite cookie) to the Frontend.
-        *   Proxies requests from Frontend to Backend Services (MES, CRM, Store), replacing the Session Cookie with the Bearer Access Token.
-        *   Automatically refreshes tokens using the stored `refresh_token` when the `access_token` expires.
-    *   **Benefit:** Tokens are never exposed to the browser (XSS protection).
+1.  **bionicpro-auth (Сервис BFF):**
+    *   **Роль:** Выступает единой точкой входа для аутентификации и обратным прокси (reverse proxy) для API-запросов.
+    *   **Обязанности:**
+        *   Обрабатывает поток авторизации OAuth2/OIDC (Authorization Code Flow) с использованием PKCE через Keycloak.
+        *   Безопасно хранит `access_token` и `refresh_token` (например, в оперативной памяти или Redis).
+        *   Выдает фронтенду общий идентификатор сессии (cookie с флагами HTTP-only, Secure, SameSite).
+        *   Проксирует запросы от фронтенда к бэкенд-сервисам (MES, CRM, Store), заменяя сессионную cookie на Bearer-токен (Access Token).
+        *   Автоматически обновляет токены, используя сохраненный `refresh_token`, когда срок действия `access_token` истекает.
+    *   **Преимущество:** Токены никогда не передаются в браузер (защита от XSS).
 
 2.  **Keycloak (Identity Provider):**
-    *   **Role:** Central Authentication Server.
-    *   **Features:**
-        *   **Identity Brokering:** Configured to trust external IdPs (Yandex ID) and connect to User Federation sources (LDAP).
-        *   **MFA:** Enforces OTP for users.
-        *   **Token Lifecycle:** Short-lived access tokens (< 2 mins), longer-lived refresh tokens.
+    *   **Роль:** Центральный сервер аутентификации.
+    *   **Возможности:**
+        *   **Брокер идентификации (Identity Brokering):** Настроен на доверие к внешним IdP (Яндекс ID) и подключение к источникам федерации пользователей (LDAP).
+        *   **MFA (Многофакторная аутентификация):** Принудительное использование одноразовых паролей (OTP) для пользователей.
+        *   **Жизненный цикл токенов:** Короткоживущие access-токены (< 2 минут), долгоживущие refresh-токены.
 
-3.  **Frontend Applications (Store, CRM, MES):**
-    *   **Change:** Remove all OIDC client logic (oidc-client-js, etc.).
-    *   **New Logic:** Simply check for the presence of the Session Cookie (via a `/me` endpoint on the BFF) and handle 401 errors by redirecting the user to the BFF's `/login` endpoint.
+3.  **Фронтенд-приложения (Store, CRM, MES):**
+    *   **Изменения:** Удаление всей логики OIDC-клиента (oidc-client-js и т.д.).
+    *   **Новая логика:** Просто проверяют наличие сессионной cookie (через эндпоинт `/me` на BFF) и обрабатывают ошибки 401, перенаправляя пользователя на эндпоинт `/login` сервиса BFF.
 
-4.  **External Sources:**
-    *   **LDAP:** For country-specific representative user data.
-    *   **Yandex ID:** For social login / external identity.
+4.  **Внешние источники:**
+    *   **LDAP:** Для данных пользователей представительств в других странах.
+    *   **Яндекс ID:** Для социального входа / внешней идентификации.
 
-### C4 Diagram Updates
+### Обновления диаграммы C4
 
-#### Context Level
-*   **Add:** `External Identity Provider (Yandex ID)` and `Corporate LDAP`.
-*   **Relationship:** `Keycloak` syncs with `LDAP` and delegates auth to `Yandex ID`.
+#### Уровень контекста (Context Level)
+*   **Добавить:** `Внешний Identity Provider (Яндекс ID)` и `Корпоративный LDAP`.
+*   **Связь:** `Keycloak` синхронизируется с `LDAP` и делегирует аутентификацию в `Яндекс ID`.
 
-#### Container Level
-*   **Add:** `Auth Service (bionicpro-auth)` container.
-*   **Change Relationships:**
-    *   *Old:* Frontend -> (Tokens) -> Backend Services.
-    *   *New:* Frontend -> (Session Cookie) -> `bionicpro-auth`.
-    *   *New:* `bionicpro-auth` -> (Bearer Token) -> Backend Services (Billing, Orders, MES, CRM).
-    *   *New:* `bionicpro-auth` -> (OIDC) -> Keycloak.
+#### Уровень контейнеров (Container Level)
+*   **Добавить:** Контейнер `Auth Service (bionicpro-auth)`.
+*   **Изменение связей:**
+    *   *Было:* Фронтенд -> (Токены) -> Бэкенд-сервисы.
+    *   *Стало:* Фронтенд -> (Сессионная Cookie) -> `bionicpro-auth`.
+    *   *Стало:* `bionicpro-auth` -> (Bearer Token) -> Бэкенд-сервисы (Billing, Orders, MES, CRM).
+    *   *Стало:* `bionicpro-auth` -> (OIDC) -> Keycloak.
 
-## Diagram Description (Textual)
+## Описание диаграммы (Текстовое)
 
 ```mermaid
 graph TD
-    User((User))
-    subgraph "BionicPRO System"
-        Frontend[Frontend Apps\n(Vue/React)]
-        AuthService[bionicpro-auth\n(BFF / Reverse Proxy)]
+    User((Пользователь))
+    subgraph "Система BionicPRO"
+        Frontend[Фронтенд приложения\n(Vue/React)]
+        AuthService[bionicpro-auth\n(BFF / Обратный прокси)]
         Keycloak[Keycloak\n(IdP)]
-        Backend[Backend Services\n(Store, CRM, MES)]
+        Backend[Бэкенд сервисы\n(Store, CRM, MES)]
     end
-    subgraph "External"
-        Yandex[Yandex ID]
-        LDAP[Country Office LDAP]
+    subgraph "Внешние системы"
+        Yandex[Яндекс ID]
+        LDAP[LDAP офиса представительства]
     end
 
     User -- HTTPS --> Frontend
-    Frontend -- "1. Login (Redirect)" --> AuthService
+    Frontend -- "1. Вход (Redirect)" --> AuthService
     AuthService -- "2. OIDC Code Flow" --> Keycloak
-    Keycloak -- "3. Authenticate" --> LDAP
-    Keycloak -- "3. Authenticate" --> Yandex
-    Keycloak -- "4. Tokens" --> AuthService
-    AuthService -- "5. Session Cookie" --> Frontend
+    Keycloak -- "3. Аутентификация" --> LDAP
+    Keycloak -- "3. Аутентификация" --> Yandex
+    Keycloak -- "4. Токены" --> AuthService
+    AuthService -- "5. Сессионная Cookie" --> Frontend
 
-    Frontend -- "6. API Req (Cookie)" --> AuthService
-    AuthService -- "7. Proxy (Bearer Token)" --> Backend
+    Frontend -- "6. API запрос (Cookie)" --> AuthService
+    AuthService -- "7. Прокси (Bearer Token)" --> Backend
 ```

@@ -10,20 +10,20 @@ from fastapi.responses import RedirectResponse, JSONResponse
 from keycloak import KeycloakOpenID
 import httpx
 
-# Configure Logging
+# Настройка логирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="bionicpro-auth")
 
-# Configuration (Env Vars)
+# Конфигурация (Переменные окружения)
 KEYCLOAK_URL = os.getenv("KEYCLOAK_URL", "http://keycloak:8080/auth/")
 REALM_NAME = os.getenv("REALM_NAME", "bionicpro")
 CLIENT_ID = os.getenv("CLIENT_ID", "bionicpro-backend")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET", "secret")
 BACKEND_BASE_URL = os.getenv("BACKEND_BASE_URL", "http://backend-service:8080")
 
-# Keycloak Client
+# Клиент Keycloak
 keycloak_openid = KeycloakOpenID(
     server_url=KEYCLOAK_URL,
     client_id=CLIENT_ID,
@@ -32,29 +32,29 @@ keycloak_openid = KeycloakOpenID(
     verify=False
 )
 
-# In-Memory Stores
-# 1. Session Store: session_id -> {tokens, expiry}
+# Хранилища в оперативной памяти (In-Memory Stores)
+# 1. Хранилище сессий: session_id -> {tokens, expiry}
 session_store: Dict[str, dict] = {}
-# 2. Pending Auth Store (for PKCE): state -> {code_verifier, created_at}
+# 2. Хранилище ожидающих авторизаций (для PKCE): state -> {code_verifier, created_at}
 pending_auths: Dict[str, dict] = {}
 
-# Constants
+# Константы
 SESSION_COOKIE_NAME = "bionic_session"
 SESSION_DURATION = 3600
-AUTH_TIMEOUT = 300 # 5 minutes to complete login
+AUTH_TIMEOUT = 300 # 5 минут на завершение входа
 
 def create_session(token_info: dict) -> str:
     session_id = secrets.token_urlsafe(32)
     session_store[session_id] = {
         "access_token": token_info["access_token"],
-        "refresh_token": token_info.get("refresh_token"), # might not always exist if not configured
+        "refresh_token": token_info.get("refresh_token"), # может отсутствовать, если не настроен
         "expires_at": time.time() + token_info["expires_in"],
         "refresh_expires_at": time.time() + token_info.get("refresh_expires_in", 0)
     }
     return session_id
 
 def rotate_session(old_session_id: str) -> Optional[str]:
-    """Task 3.12: Session Rotation"""
+    """Задача 3.12: Ротация сессии"""
     if old_session_id in session_store:
         data = session_store.pop(old_session_id)
         new_session_id = secrets.token_urlsafe(32)
@@ -62,7 +62,7 @@ def rotate_session(old_session_id: str) -> Optional[str]:
         return new_session_id
     return None
 
-# PKCE Helpers
+# Вспомогательные функции PKCE
 def generate_code_verifier():
     token = secrets.token_urlsafe(32)
     return token[:128]
@@ -73,45 +73,42 @@ def generate_code_challenge(verifier: str):
 
 @app.get("/login")
 async def login():
-    """Redirects to Keycloak with PKCE."""
-    # 1. Generate PKCE Data
+    """Перенаправляет в Keycloak с использованием PKCE."""
+    # 1. Генерация данных PKCE
     code_verifier = generate_code_verifier()
     code_challenge = generate_code_challenge(code_verifier)
     state = secrets.token_urlsafe(16)
 
-    # 2. Store Verifier mapped to State
+    # 2. Сохранение Verifier, привязанного к State
     pending_auths[state] = {
         "code_verifier": code_verifier,
         "created_at": time.time()
     }
 
-    # 3. Clean up old pending auths
+    # 3. Очистка старых ожидающих авторизаций
     current_time = time.time()
     for s in list(pending_auths.keys()):
         if current_time - pending_auths[s]["created_at"] > AUTH_TIMEOUT:
             del pending_auths[s]
 
-    # 4. Generate Auth URL with PKCE
-    # Note: python-keycloak might not support 'code_challenge' in auth_url explicitly in all versions via kwargs,
-    # but we can construct it or pass extra params.
-    # Assuming standard kwargs support for extra query params.
+    # 4. Генерация URL авторизации с PKCE
+    # Примечание: python-keycloak может не поддерживать 'code_challenge' в auth_url явно во всех версиях через kwargs,
+    # но мы можем добавить их вручную.
     auth_url = keycloak_openid.auth_url(
         redirect_uri="http://localhost:8000/callback",
         scope="openid profile email",
         state=state
     )
-    # Append PKCE params manually if needed, or rely on lib.
-    # Ideally: keycloak_openid.auth_url(..., code_challenge=..., code_challenge_method='S256')
-    # If the lib doesn't support it directly in arguments, we append.
+    # Добавляем параметры PKCE вручную
     auth_url += f"&code_challenge={code_challenge}&code_challenge_method=S256"
 
     return RedirectResponse(auth_url)
 
 @app.get("/callback")
 async def callback(code: str, state: str, response: Response):
-    """Exchanges code for tokens using PKCE verifier."""
+    """Обменивает код на токены, используя PKCE verifier."""
 
-    # 1. Validate State
+    # 1. Валидация State
     if state not in pending_auths:
         raise HTTPException(status_code=400, detail="Invalid state or session expired")
 
@@ -119,8 +116,8 @@ async def callback(code: str, state: str, response: Response):
     code_verifier = auth_data["code_verifier"]
 
     try:
-        # 2. Exchange Code + Verifier for Tokens
-        # python-keycloak token() method supports code_verifier kwarg
+        # 2. Обмен кода и Verifier на токены
+        # Метод token() в python-keycloak поддерживает аргумент code_verifier
         token_info = keycloak_openid.token(
             grant_type='authorization_code',
             code=code,
@@ -128,10 +125,10 @@ async def callback(code: str, state: str, response: Response):
             code_verifier=code_verifier
         )
 
-        # 3. Create Session
+        # 3. Создание сессии
         session_id = create_session(token_info)
 
-        # 4. Set Cookie
+        # 4. Установка Cookie
         response = RedirectResponse(url="/")
         response.set_cookie(
             key=SESSION_COOKIE_NAME,
@@ -155,7 +152,7 @@ async def session_middleware(request: Request, call_next):
 
         session_data = session_store[session_id]
 
-        # Refresh logic
+        # Логика обновления (Refresh)
         if time.time() > session_data["expires_at"] - 10:
             try:
                 if not session_data.get("refresh_token"):
@@ -173,10 +170,10 @@ async def session_middleware(request: Request, call_next):
                 del session_store[session_id]
                 return JSONResponse(status_code=401, content={"detail": "Session expired"})
 
-        # Session Rotation
+        # Ротация сессии
         new_session_id = rotate_session(session_id)
         if new_session_id:
-             session_data = session_store[new_session_id] # Update ref
+             session_data = session_store[new_session_id] # Обновляем ссылку
 
         request.state.access_token = session_data["access_token"]
 

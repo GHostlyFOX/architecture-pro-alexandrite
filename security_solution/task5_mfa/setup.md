@@ -1,22 +1,22 @@
-# Setting up MFA in Keycloak
+# Настройка MFA в Keycloak
 
-To enable Multi-Factor Authentication (OTP) for BionicPRO users:
+Чтобы включить многофакторную аутентификацию (OTP) для пользователей BionicPRO:
 
-1.  **Log in to Keycloak Admin Console.**
-2.  **Select the Realm** (e.g., `bionicpro`).
-3.  **Navigate to Authentication** (in the left menu).
-4.  **Flows Tab:**
-    *   Select `Browser` flow.
-    *   Copy the flow (e.g., name it `Browser with MFA`).
-    *   In the new flow, find the "OTP" or "Conditional OTP" execution.
-    *   Set the requirement to `REQUIRED` (or `ALTERNATIVE` if combined with other factors, but task asks for mandatory).
-    *   **Recommendation:** Usually, you create a sub-flow "MFA" containing "OTP Form" and set it to `REQUIRED`.
-5.  **Bindings Tab:**
-    *   Set the "Browser Flow" to your new `Browser with MFA`.
-6.  **Navigate to Authentication > Policies > OTP Policy:**
-    *   Configure the algorithm (TOTP).
-    *   Period: 30 seconds.
-    *   Supported Applications: Google Authenticator, FreeOTP.
-7.  **User Experience:**
-    *   When a user logs in next time, they will be prompted to set up OTP by scanning a QR code.
-    *   Subsequent logins will require the code.
+1.  **Войдите в консоль администратора Keycloak.**
+2.  **Выберите Realm (Область)** (например, `bionicpro`).
+3.  **Перейдите в Authentication (Аутентификация)** (в меню слева).
+4.  **Вкладка Flows (Потоки):**
+    *   Выберите поток `Browser`.
+    *   Скопируйте поток (например, назовите его `Browser with MFA`).
+    *   В новом потоке найдите выполнение "OTP" или "Conditional OTP".
+    *   Установите требование в `REQUIRED` (или `ALTERNATIVE`, если комбинируется с другими факторами, но задача требует обязательного использования).
+    *   **Рекомендация:** Обычно создается подпоток (sub-flow) "MFA", содержащий "OTP Form", и для него устанавливается `REQUIRED`.
+5.  **Вкладка Bindings (Привязки):**
+    *   Установите "Browser Flow" на ваш новый `Browser with MFA`.
+6.  **Перейдите в Authentication > Policies > OTP Policy:**
+    *   Настройте алгоритм (TOTP).
+    *   Период: 30 секунд.
+    *   Поддерживаемые приложения: Google Authenticator, FreeOTP.
+7.  **Пользовательский опыт:**
+    *   При следующем входе в систему пользователю будет предложено настроить OTP, отсканировав QR-код.
+    *   Последующие входы будут требовать ввода кода.

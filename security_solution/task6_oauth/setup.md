@@ -1,37 +1,37 @@
-# Setting up Yandex ID (OAuth 2.0) in Keycloak
+# Настройка Яндекс ID (OAuth 2.0) в Keycloak
 
-To allow users to log in with their Yandex account via Identity Brokering:
+Чтобы разрешить пользователям входить с учетной записью Яндекс через Identity Brokering:
 
-## 1. Create an OAuth App in Yandex
-1.  Go to [Yandex OAuth](https://oauth.yandex.ru/).
-2.  Create a new client.
-3.  **Permissions:** Select `yandex:avatar:read`, `login:email`, `login:info`, etc.
-4.  **Callback URL:** You need the Keycloak callback URL (see below).
-    *   Format: `http://<keycloak-host>/realms/<realm-name>/broker/yandex/endpoint`
-5.  Save the `Client ID` and `Client Secret`.
+## 1. Создание приложения OAuth в Яндекс
+1.  Перейдите в [Яндекс OAuth](https://oauth.yandex.ru/).
+2.  Создайте новый клиент.
+3.  **Права доступа:** Выберите `yandex:avatar:read`, `login:email`, `login:info` и т.д.
+4.  **Callback URL:** Вам понадобится URL обратного вызова Keycloak (см. ниже).
+    *   Формат: `http://<хост-keycloak>/realms/<имя-realm>/broker/yandex/endpoint`
+5.  Сохраните `Client ID` и `Client Secret`.
 
-## 2. Configure Keycloak Identity Provider
-1.  **Log in to Keycloak Admin Console.**
-2.  **Navigate to Identity Providers.**
-3.  **Add Provider:** Select `User-defined` (OpenID Connect v1.0) or `Yandex` (if available in your Keycloak version's list).
-    *   *Note:* Standard OIDC often works better if Yandex is not pre-listed.
-4.  **Configuration:**
-    *   **Alias:** `yandex`
-    *   **Display Name:** `Yandex ID`
+## 2. Настройка Identity Provider в Keycloak
+1.  **Войдите в консоль администратора Keycloak.**
+2.  **Перейдите в Identity Providers.**
+3.  **Добавить провайдера:** Выберите `User-defined` (OpenID Connect v1.0) или `Yandex` (если доступно в списке вашей версии Keycloak).
+    *   *Примечание:* Стандартный OIDC часто работает лучше, если Яндекс отсутствует в списке предустановленных.
+4.  **Конфигурация:**
+    *   **Alias (Псевдоним):** `yandex`
+    *   **Display Name (Отображаемое имя):** `Яндекс ID`
     *   **Authorization URL:** `https://oauth.yandex.ru/authorize`
     *   **Token URL:** `https://oauth.yandex.ru/token`
-    *   **Client ID:** (From Step 1)
-    *   **Client Secret:** (From Step 1)
-    *   **Client Authentication:** `Client secret sent as post` (usually).
-5.  **Mappers (Optional but recommended):**
-    *   Map `email` to `user.email`.
-    *   Map `first_name`, `last_name`.
-6.  **Save.**
+    *   **Client ID:** (Из шага 1)
+    *   **Client Secret:** (Из шага 1)
+    *   **Client Authentication:** `Client secret sent as post` (обычно).
+5.  **Mappers (Мапперы) (Необязательно, но рекомендуется):**
+    *   Сопоставьте `email` с `user.email`.
+    *   Сопоставьте `first_name`, `last_name`.
+6.  **Сохранить.**
 
-## 3. Testing
-1.  Go to the application login page.
-2.  You should see a "Yandex ID" button.
-3.  Clicking it redirects to Yandex.
-4.  After auth, Yandex redirects back to Keycloak.
-5.  **User Profile:** Keycloak will prompt the user to review/update their profile (First Login Flow) unless configured to "Auto Link".
-6.  **Data Persistence:** The user profile is stored in Keycloak's database.
+## 3. Тестирование
+1.  Перейдите на страницу входа в приложение.
+2.  Вы должны увидеть кнопку "Яндекс ID".
+3.  Нажатие на нее перенаправляет в Яндекс.
+4.  После авторизации Яндекс перенаправляет обратно в Keycloak.
+5.  **Профиль пользователя:** Keycloak предложит пользователю просмотреть/обновить свой профиль (First Login Flow), если не настроено "Auto Link" (Автоматическое связывание).
+6.  **Сохранение данных:** Профиль пользователя сохраняется в базе данных Keycloak.

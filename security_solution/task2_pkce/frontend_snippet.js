@@ -1,6 +1,6 @@
-// Frontend Logic (Vue/React generic snippet)
+// Логика Фронтенда (Пример для Vue/React)
 
-// OLD WAY (Token in LocalStorage - REMOVE THIS)
+// СТАРЫЙ СПОСОБ (Токен в LocalStorage - УДАЛИТЬ ЭТО)
 /*
 const token = localStorage.getItem('access_token');
 axios.get('http://backend/api/orders', {
@@ -8,24 +8,24 @@ axios.get('http://backend/api/orders', {
 });
 */
 
-// NEW WAY (Session Cookie handled by Browser)
+// НОВЫЙ СПОСОБ (Сессионная Cookie обрабатывается браузером)
 
-// 1. Login is just a redirect
+// 1. Вход - это просто редирект
 function login() {
   window.location.href = "http://bionicpro-auth-service:8000/login";
 }
 
-// 2. API Requests go to the BFF, no headers needed (cookie is automatic)
+// 2. API-запросы идут на BFF, заголовки не нужны (cookie подставляется автоматически)
 async function getOrders() {
   try {
-    // Note: Request goes to the BFF (auth service), which proxies to the actual backend
+    // Примечание: Запрос идет на BFF (auth service), который проксирует его на реальный бэкенд
     const response = await fetch('/api/orders', {
       method: 'GET',
-      credentials: 'include' // Important! Sends the HttpOnly cookie
+      credentials: 'include' // Важно! Отправляет HttpOnly cookie
     });
 
     if (response.status === 401) {
-      // Session expired or invalid
+      // Сессия истекла или недействительна
       login();
       return;
     }
@@ -33,11 +33,11 @@ async function getOrders() {
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error("Failed to fetch orders", error);
+    console.error("Не удалось получить заказы", error);
   }
 }
 
-// 3. Logout
+// 3. Выход
 async function logout() {
     await fetch('/logout', { method: 'POST' });
     window.location.reload();
